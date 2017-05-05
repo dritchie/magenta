@@ -61,14 +61,14 @@ class OrderlessNADE:
 			def body(log_probability,i):
 				targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
 				targets_flat_masked = targets_flat*targets_flat_mask_float
-				h_1 = tf.sigmoid(tf.matmul(targets_flat_masked,W)+a)
+				h_1 = tf.sigmoid(tf.matmul(targets_flat_masked,self.W)+self.a)
 
 				o_d = ordering[:,d+i]
 				coords = tf.transpose(tf.stack([row_indices, o_d]))
-				temp_b =  tf.gather_nd(b, coords)
+				temp_b =  tf.gather_nd(self.b, coords)
 
-				p_shape = tf.shape(V)
-				p_flat = tf.reshape(V, [-1])
+				p_shape = tf.shape(self.V)
+				p_flat = tf.reshape(self.V, [-1])
 				i_temp = tf.reshape(tf.range(0, p_shape[0]) * p_shape[1], [1, -1])
 				i_flat = tf.reshape( i_temp + tf.reshape(o_d,[-1,1]), [-1])
 				temp_Z = tf.gather(p_flat, i_flat)
