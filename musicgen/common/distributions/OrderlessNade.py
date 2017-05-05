@@ -52,7 +52,7 @@ class OrderlessNADE:
     
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
     log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
-		with tf.variable_scope("NADE_step"):
+		with tf.variable_scope("OrderlessNADE_step"):
       row_indices = tf.py_func(get_row_indices, [ordering], tf.int32)
       # targets are already flattened? targets_flat = tf.reshape(targets, (-1, timeslice_size))
       index = tf.constant(0)
