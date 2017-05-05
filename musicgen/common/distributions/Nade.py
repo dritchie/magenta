@@ -28,7 +28,7 @@ class NADE:
 				ct += 1
 				if  ct >= timeslice_size:
 					break
-		print('log_probability: check shape!!', log_probability)
+		#print('log_probability: check shape!!', log_probability)
 		return(log_probability)
 		# Check that we can do the following operations on log_probability (these operations will be done in the file models/sequenceGenerativeModel.py)
 		#log_prob= tf.reduce_sum(log_prob, 1)
