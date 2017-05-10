@@ -7,6 +7,9 @@ class ParticleFilter(ForwardSample):
 
 	def __init__(self, model, checkpoint_dir, batch_size=1):
 		super(ParticleFilter, self).__init__(model, checkpoint_dir, batch_size)
+		self.sample_placeholder = tf.placeholder(dtype = tf.float32, shape=[batch_size, self.model.timeslice_size], name = "samples")
+		self.log_probability_node = self.dist.log_prob(self.sample_placeholder)
+		self.log_probabilities = np.zeros(self.batch_size)
 
 	"""
 	Generate for one time step
@@ -53,6 +56,10 @@ class ParticleFilter(ForwardSample):
 				new_sample[i] = np.matmul(new_dist.reshape(1, -1), sample)
 
 			sample = new_sample
+
+		feed_dict[self.sample_placeholder] = sample
+		self.log_probabilities += self.sess.run(self.log_probability_node, feed_dict).sum(axis=1)
+		print self.log_probabilities
 
 		# Finally, we reshape the sample to be 3D again (the Distribution is over 2D [batch, depth]
 		#    tensors--we need to reshape it to [batch, time, depth], where time=1)
