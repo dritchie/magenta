@@ -7,7 +7,7 @@ from common.sampling.forward import ForwardSample, batchify_dict
 
 class MetropolisHastings(ForwardSample):
 
-	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 5000):
+	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000):
 		super(MetropolisHastings, self).__init__(model, checkpoint_dir, batch_size)
 		self.rnn_states = []
 		self.sample_placeholder = tf.placeholder(dtype = tf.float32, shape=[batch_size, self.model.timeslice_size], name = "samples")
@@ -25,9 +25,10 @@ class MetropolisHastings(ForwardSample):
 		self.log_probabilities = np.zeros((n_steps, self.batch_size))
 		timeslice_histories = self.initialize_samples(n_steps, initial_timeslices, condition_dicts)
 		self.log_probs_for_graph.append(self.log_probabilities.sum(axis=0))
+		print self.log_probabilities.sum(axis = 0)
 		for i in range(self.iterations):
 			if i % 100 == 0:
-				print "Sampling...Iteration " + str(i + 1) + " of " + str(self.iterations)
+				print "Probabilities for iteration " + str(i) + ": " + str(self.log_probabilities.sum(axis = 0))
 			timeslice_histories = self.flip_and_modify_note(timeslice_histories, n_steps, condition_dicts)
 			self.log_probs_for_graph.append(self.log_probabilities.sum(axis=0))
 		for i in range(self.batch_size):
@@ -44,77 +45,66 @@ class MetropolisHastings(ForwardSample):
 
 	# Flips a note, computes probability of new song, and decides to keep note if probability is in favor.
 	def flip_and_modify_note(self, timeslice_histories, n_steps, condition_dicts):
-		
+
 		rand = random.randint(0, len(self.unknown_notes) - 1)
 		rand_batch, rand_step, rand_note = self.unknown_notes[rand]
 
 		timeslice_histories_copy = []
+		fake_th = []
 		for i in range(len(timeslice_histories)):
-			timeslice_histories_copy.append(copy.deepcopy(timeslice_histories[i][: rand_step + 2]))
-		log_probabilities_copy = copy.deepcopy(self.log_probabilities) 
+			timeslice_histories_copy.append(copy.deepcopy(timeslice_histories[i][: rand_step + 1]))
+			fake_th.append(copy.deepcopy(timeslice_histories[i][: rand_step + 2]))
+		log_probabilities_copy = copy.deepcopy(self.log_probabilities)
 		rnn_states_copy = copy.deepcopy(self.rnn_states)
 
 		before_flip_probs = self.log_probabilities.sum(axis=0)
-		
+
 		# since there's a buffer of size one in the beginning of the batch array
-		batch = timeslice_histories_copy[rand_batch]
+		batch = fake_th[rand_batch]
 		batch[rand_step + 1][rand_note] = 1 - batch[rand_step + 1][rand_note]
 
 		condition_dict = {} if (condition_dicts is None) else condition_dicts[rand_step]
 		rnn_next_inputs = [self.model.next_rnn_input(history, condition_dict) for history in timeslice_histories_copy]
 		rnn_input = np.stack(rnn_next_inputs)[:,np.newaxis]	# newaxis also adds singleton time dimension
 		rnn_state = self.rnn_states[rand_step]
-		feed_dict = { self.input_placeholder: rnn_input, self.rnn_state: rnn_state }
-		sample = np.array([timeslice_histories_copy[b][rand_step+1] for b in range(self.batch_size)])
+		sample = copy.deepcopy(np.array([fake_th[b][rand_step+1] for b in range(self.batch_size)]))
+
+		first = True
 
 		for i in range(rand_step, n_steps):
 			rnn_states_copy[i] = rnn_state
 
+			feed_dict = { self.input_placeholder: rnn_input, self.rnn_state: rnn_state }
+			next_state, outputs = self.sess.run([self.final_state, self.rnn_outputs], feed_dict)
+			if not first:
+				sample = copy.deepcopy(np.array([timeslice_histories[b][i+1] for b in range(self.batch_size)]))
+			else:
+				first = False
+
 			feed_dict[self.sample_placeholder] = sample
+
 			log_probabilities = self.sess.run(self.log_probability_node, feed_dict)
 			log_probabilities = np.sum(log_probabilities, axis = 1)
 			log_probabilities_copy[i] = log_probabilities
-			
+
+			rnn_state = next_state
+
+			for j, s in enumerate(sample):
+				timeslice_histories_copy[j].append(s)
+
 			condition_dict = {} if (condition_dicts is None) else condition_dicts[i]
 			rnn_next_inputs = [self.model.next_rnn_input(history, condition_dict) for history in timeslice_histories_copy]
 			rnn_input = np.stack(rnn_next_inputs)[:,np.newaxis]	# newaxis also adds singleton time dimension
-			feed_dict[self.input_placeholder] = rnn_input
-			next_state, outputs = self.sess.run([self.final_state, self.rnn_outputs], feed_dict)
-			rnn_state = next_state
-
-			if i != n_steps - 1:
-				sample = copy.deepcopy(np.array([timeslice_histories[b][i+1] for b in range(self.batch_size)]))
-				for i, s in enumerate(sample):
-					timeslice_histories_copy[i].append(s)
 
 		after_flip_probs = log_probabilities_copy.sum(axis = 0)
-		# print "before"
-		# print self.log_probabilities[:,rand_batch]
-		# print "after"
-		# print log_probabilities_copy[:,rand_batch]
-		# print before_flip_probs[rand_batch]
-		# print after_flip_probs[rand_batch]
-		# print "printing probabilities"
-		# print before_flip_probs
-		# print after_flip_probs
-		# print "printing states"
-		# print rand_step
-		# print self.rnn_states[n_steps - 1][rand_batch] - rnn_states_copy[n_steps - 1][rand_batch]
-		# print rnn_states_copy[n_steps - 1][rand_batch]
 
 		a = np.exp(np.array([before_flip_probs[rand_batch], after_flip_probs[rand_batch]]))
 		a = a / sum(a)
-		# print a
-		# print timeslice_histories_copy[rand_batch][rand_step]
-		# print timeslice_histories[rand_batch][rand_step]
-		# print a
-		# print timeslice_histories_copy[rand_batch]
-		# print timeslice_histories[rand_batch]
-		
+
 		if random.random() > a[0]:
 			# print "using flipped note"
-			print "before: " + str(before_flip_probs[rand_batch])
-			print "after: " + str(after_flip_probs[rand_batch])
+			print "before: " + str(before_flip_probs[rand_batch]) + " in batch " + str(rand_batch)
+			print "after: " + str(after_flip_probs[rand_batch]) + " in batch " + str(rand_batch)
 			# print after_flip_probs - before_flip_probs
 			timeslice_histories = timeslice_histories_copy
 			self.log_probabilities = log_probabilities_copy
@@ -181,6 +171,7 @@ class MetropolisHastings(ForwardSample):
 			condition_dict = {} if (condition_dicts is None) else condition_dicts[i]
 			# Batchify the condition dict before feeding it into sampling step
 			self.rnn_states.append(rnn_state)
+
 			condition_dict_batch = batchify_dict(condition_dict, self.batch_size)
 			rnn_state, sample_batch = self.initial_sample_step(i, rnn_state, rnn_input, condition_dict_batch)
 			# Split the batchified sample into N individual samples (N = self.batch_size)
@@ -212,15 +203,45 @@ class MetropolisHastings(ForwardSample):
 			# slices out the last time entry but keeps the tensor 3D
 			outputs = outputs[:, seq_len-1, np.newaxis, :]
 
+		# instead of this line, actually sample from the timeslice distribution!
 		sample = np.zeros((self.batch_size, self.model.timeslice_size))
-		
+		# feed_dict = {self.condition_dict_placeholders[name]: condition_dict[name] for name in condition_dict}
+		# feed_dict[self.rnn_outputs] = outputs
+		# sample = self.sess.run(self.sampled_timeslice, feed_dict)
+		# matching = False
+		# first = True
+
 		if condition_dict:
 			for i in range(self.batch_size):
 				sample[i] = condition_dict['known_notes'][i][0]
 				for j in range(len(sample[i])):
 					if sample[i][j] == -1:
 						self.unknown_notes.append((i, step, j))
-						sample[i][j] = 0
+						sample[i][j] = random.randint(0, 1)
+
+			# while not matching:
+			# 	probabilities = np.zeros((self.batch_size,))
+			# 	for i in range(self.batch_size):
+			# 		probabilities[i] += self.model.eval_factor_function(sample[i], condition_dict['known_notes'][i][0])
+			# 		if first and condition_dict['known_notes'][i][0] == -1:
+			# 			self.unknown_notes.append((i, step, j))
+			# 	probabilities = np.exp(probabilities)
+			# 	if sum(probabilities) > 0:
+			# 		matching = True
+			# 	else:
+			# 		sample = self.sess.run(self.sampled_timeslice, feed_dict)
+			# 	first = False
+
+			# normalized_probabilities = np.array([float(i/sum(probabilities)) for i in probabilities])
+			# new_sample = np.zeros(sample.shape)
+			#
+			# # Resample from the distribution which favors samples that satisfy the conditions specified.
+			# for i in range(self.batch_size):
+			# 	new_dist = np.random.multinomial(1, normalized_probabilities)
+			# 	new_sample[i] = np.matmul(new_dist.reshape(1, -1), sample)
+			#
+			# sample = new_sample
+
 		else:
 			for i in range(self.batch_size):
 				# note = random.randint(0, len(sample[i]))
@@ -238,6 +259,3 @@ class MetropolisHastings(ForwardSample):
 		sample = sample[:,np.newaxis,:]
 
 		return next_state, sample
-
-
-
