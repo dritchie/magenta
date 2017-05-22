@@ -141,7 +141,7 @@ class SequenceGenerativeModel(Model):
 
 		# Sum across timeslice entries, then across time+batch
 		#log_prob = tf.reduce_sum(log_prob, 1)
-		log_prob = tf.reshape(log_prob, (-1,1))
+		log_prob = tf.reshape(log_prob, (1,-1))
 
 		num_time_slices = tf.to_float(tf.reduce_sum(lengths))
 		log_prob = tf.reduce_sum(mask_flat * log_prob) / num_time_slices
