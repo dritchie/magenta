@@ -4,10 +4,39 @@ import tensorflow as tf
 import numpy as np
 from numpy import random
 
+# ask maxime about this & what this does? do we take vector and randomly shuffle
+# and break into lower & upper and order them? do we always mask out the top x?
 
+# my thoughts: rewrite get_mask_float to isolate elements of a certain track and
+# apply the mask to that track. but how to get the track?
+
+# mask out only one unknown. for a given song in the batch, use same mask pattern across all
+# timeslices.
+
+# looks like (128 * 4) * 9 2D matrix. want to isolate an unknown note
+
+# masked_track_ordering
+
+def generate_track_ordering(N, timeslice_size, num_timeslices):
+	non_ordered = np.zeros((N, timeslice_size))
+
+	for i in xrange(0, N, num_timeslices):
+		song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
+		for j in range(4):
+			non_ordered[i + j] = song_order
+
+	# order the all elements by pitch ascending order except one element at the end (masked)
+	lower = non_ordered[:,:timeslice_size - 1]
+	upper = non_ordered[:,timeslice_size - 1:]
+
+	lower_sorted = np.sort(lower, axis=1, kind='quicksort', order=None)
+	upper_sorted = np.sort(upper, axis=1, kind='quicksort', order=None)
+	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
+	return total
 
 def generate_ordering(N,d,timeslice_size):
-	# generate non ordered ordering
+	# generate non ordered ordering. cannot generate random ordering for each row
+	print "N: " + str(N)
 	non_ordered = np.array([random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32) for _ in range(N)])
 	# order the first d-1 elements by pitch ascending order. order the last (timeslice-d+1) elements by pitch ascending order
 	lower = non_ordered[:,:d]
@@ -17,10 +46,12 @@ def generate_ordering(N,d,timeslice_size):
 	upper_sorted = np.sort(upper, axis=1, kind='quicksort', order=None)
 	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
 	return total
-  
+
 # I think we can include this operation in the tf graph
 def get_row_indices(ordering):
 	return np.asarray(range(ordering.shape[0]),dtype=np.int32)
+
+# def get_track_mask_float(ordering, x):
 
 def get_mask_float(ordering,x):
 	# We can make this implementation much more efficient
@@ -31,8 +62,8 @@ def get_mask_float(ordering,x):
 	return mask
 
 
-  
-  
+
+
 class OrderlessNADE:
 	"""OrderlessNADE distribution. """
 
@@ -43,6 +74,7 @@ class OrderlessNADE:
 	def log_prob(self,targets_flat):
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
+		print targets_flat.get_shape().as_list()
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
 		#N = targets_flat.get_shape().as_list()[0]
@@ -61,6 +93,7 @@ class OrderlessNADE:
 			def body(log_probability,i):
 				targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
 				targets_flat_masked = targets_flat*targets_flat_mask_float
+				# need to get updated code from maxime that concatenates mask and targets_flat_masked
 				h_1 = tf.sigmoid(tf.matmul(targets_flat_masked,self.W)+self.a)
 
 				o_d = ordering[:,d+i]

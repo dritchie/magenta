@@ -248,7 +248,9 @@ class MetropolisHastings(ForwardSample):
 				for j in range(len(sample[i])):
 					# if j == note:
 					# 	sample[i][j] = 1
-					sample[i][j] = random.randint(0, 1)
+					r = random.randint(0, 9)
+					if r == 0:
+						sample[i][j] = 1
 					self.unknown_notes.append((i, step, j))
 
 		feed_dict[self.sample_placeholder] = sample
