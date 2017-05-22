@@ -17,12 +17,12 @@ from numpy import random
 
 # masked_track_ordering
 
-def generate_track_ordering(N, timeslice_size, num_timeslices):
+def generate_track_ordering(N, timeslice_size):
 	non_ordered = np.zeros((N, timeslice_size))
 
-	for i in xrange(0, N, num_timeslices):
+	for i in xrange(0, N, 512):
 		song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
-		for j in range(4):
+		for j in range(num_timeslices):
 			non_ordered[i + j] = song_order
 
 	# order the all elements by pitch ascending order except one element at the end (masked)
@@ -78,9 +78,10 @@ class OrderlessNADE:
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
 		#N = targets_flat.get_shape().as_list()[0]
-		d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
+		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
+		d = 8
 
-		ordering = tf.py_func(generate_ordering, [N,d,timeslice_size], tf.int32)
+		ordering = tf.py_func(generate_track_ordering, [N,timeslice_size], tf.int32)
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
