@@ -91,7 +91,7 @@ class OrderlessNADE:
 """
 The same class as above; except that we concatenate the input vector with the mask
 """
-class OrderlessNADE:
+class OrderlessNADEConcat:
 	"""OrderlessNADE distribution. """
 
 	def __init__(self,a,b,W,V,dtype=tf.float32):
