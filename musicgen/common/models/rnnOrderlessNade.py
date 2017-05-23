@@ -47,7 +47,7 @@ The same class as above; except that we concatenate the input vector with the ma
 class RNNOrderlessNadeConcat(SequenceGenerativeModel):
 
 	def __init__(self, hparams, sequence_encoder,size_hidden_layer=50):
-		super(RNNOrderlessNade, self).__init__(hparams, sequence_encoder)
+		super(RNNOrderlessNadeConcat, self).__init__(hparams, sequence_encoder)
 		self.size_hidden_layer=size_hidden_layer
 
 
