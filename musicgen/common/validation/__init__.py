@@ -16,10 +16,8 @@ def validate(model, dataset, hparams):
   # number of batches required to loop over one epoch of validation data
   num_iter = int(math.ceil(float(num_examples) / hparams.batch_size))
   print('number of batches in one epoch of validation data: ',num_iter)
-
-	batch = dataset.load_batch(hparams.batch_size, hparams.num_threads)
-	loss = model.training_loss(batch)
-
+  batch = dataset.load_batch(hparams.batch_size, hparams.num_threads)
+  loss = model.training_loss(batch)
   condition = tf.Variable(0, trainable=False)
   sv = tf.train.Supervisor(logdir=eval_dir, global_step=condition)
   
