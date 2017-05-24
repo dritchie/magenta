@@ -32,7 +32,7 @@ def generate_track_ordering(N, timeslice_size):
 	lower_sorted = np.sort(lower, axis=1, kind='quicksort', order=None)
 	upper_sorted = np.sort(upper, axis=1, kind='quicksort', order=None)
 	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
-	return total
+	return total.astype(np.int32)
 
 def generate_ordering(N,d,timeslice_size):
 	# generate non ordered ordering. cannot generate random ordering for each row
