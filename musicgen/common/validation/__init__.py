@@ -1,33 +1,35 @@
 import tensorflow as tf
-import os
+import os 
+import math
+import time
+from datetime import datetime
+import numpy as np
 
-eval_interval_secs = 10
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-eval_dir = dir_path + '/validation/' + experiment_name
 
 """
 Run validation on one epoch
 """
 
-def validate(model, dataset, hparams):
+def validate(model, dataset, hparams,validation_params):
+
 
   # number of validation examples in the dataset
   num_examples = len(list(tf.python_io.tf_record_iterator(dataset.filenames[0])))
   print('number of validation examples: ',num_examples)
   # number of batches required to loop over one epoch of validation data
-  num_iter = int(math.ceil(float(num_examples) / hparams.batch_size))
+  num_iter = int(math.ceil(float(num_examples) / validation_params.batch_size))
   print('number of batches in one epoch of validation data: ',num_iter)
-  batch = dataset.load_batch(hparams.batch_size, hparams.num_threads)
+  batch = dataset.load_batch(validation_params.batch_size, validation_params.num_threads)
   loss = model.training_loss(batch)
   condition = tf.Variable(0, trainable=False)
-  sv = tf.train.Supervisor(logdir=eval_dir, global_step=condition)
+  sv = tf.train.Supervisor(logdir=validation_params.eval_dir, global_step=condition)
   
   # compute validation loss every eval_interval_secs
   while True:
     with sv.managed_session() as sess:
 
-          ckpt = tf.train.get_checkpoint_state(hparams.log_dir)
+          # Restore the last model that is in the log_dir directory
+          ckpt = tf.train.get_checkpoint_state(validation_params.log_dir)
           if ckpt and ckpt.model_checkpoint_path:
             sv.saver.restore(sess, ckpt.model_checkpoint_path)
             # Assuming model_checkpoint_path looks something like:
@@ -48,7 +50,7 @@ def validate(model, dataset, hparams):
             step = 0
             # loop through num_iter batches. At the end of the while loop, we have looked at 1 epoch of validation data
             while step < num_iter and not coord.should_stop():
-              #print('step',step)
+              print('step',step)
               predictions = sess.run([loss])
               neg_log_like_sess += np.sum(predictions)
               step += 1
@@ -70,4 +72,4 @@ def validate(model, dataset, hparams):
             break
 
           # wait eval_interval_secs seconds before computing the new validation loss
-          time.sleep(eval_interval_secs)
+          time.sleep(validation_params.eval_interval_secs)
