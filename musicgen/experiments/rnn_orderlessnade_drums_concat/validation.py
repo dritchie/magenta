@@ -3,7 +3,7 @@ import os
 from common.models import RNNOrderlessNadeConcat
 from common.datasets import SequenceDataset
 import common.encoding as encoding
-#from common import training
+from common import validation
 from common import utils
 from common.datasets.jsbchorales import vec_entry_to_pitch
 from magenta.common import HParams
