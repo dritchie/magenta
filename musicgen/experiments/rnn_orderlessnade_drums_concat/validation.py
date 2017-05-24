@@ -17,7 +17,20 @@ experiment_name = args[0]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 log_dir = dir_path + '/trainOutput/' + experiment_name
+eval_dir = dir_path + '/validation/' + experiment_name
 utils.ensuredir(log_dir)
+utils.ensuredir(eval_dir)
+
+validation_params = HParams(
+	num_threads = 2,
+	batch_size = 128,
+	#summary_frequency = 10,
+	log_dir = log_dir,
+	eval_dir = eval_dir,
+	eval_interval_secs = 10
+
+)
+
 
 timeslice_encoder = encoding.IdentityTimeSliceEncoder(encoding.DrumTimeSliceEncoder().output_size)
 
@@ -33,5 +46,6 @@ dataset = SequenceDataset([data_filename], sequence_encoder)
 
 model = RNNOrderlessNadeConcat.from_file(log_dir + '/model.pickle', dataset.sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
+print('hparams in validate.py ',model.hparams)
 
-validation.validate(model, dataset, model.hparams)
+validation.validate(model, dataset, model.hparams,validation_params)
