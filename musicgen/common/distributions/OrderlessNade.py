@@ -138,9 +138,10 @@ class OrderlessNADEConcat:
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
 		#N = targets_flat.get_shape().as_list()[0]
-		d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
+		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
+		d = 8
 
-		ordering = tf.py_func(generate_ordering, [N,d,timeslice_size], tf.int32)
+		ordering = tf.py_func(generate_track_ordering, [N,timeslice_size], tf.int32)
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
