@@ -1,4 +1,6 @@
 import tensorflow as tf
+import os
+
 eval_interval_secs = 10
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
