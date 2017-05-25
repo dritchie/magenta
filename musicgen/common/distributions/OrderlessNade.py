@@ -19,13 +19,13 @@ from numpy import random
 
 def generate_track_ordering(N, timeslice_size):
 	non_ordered = np.zeros((N, timeslice_size))
-	print N
-	print timeslice_size
+	# print N
+	# print timeslice_size
 
-	for i in xrange(0, N, 512):
+	for i in xrange(0, N):
 		song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
-		for j in range(512):
-			non_ordered[i + j] = song_order
+		# for j in range(512):
+		# 	non_ordered[i + j] = song_order
 
 	# order the all elements by pitch ascending order except one element at the end (masked)
 	lower = non_ordered[:,:timeslice_size - 1]
