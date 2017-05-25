@@ -181,25 +181,25 @@ class OrderlessNADEConcat:
 			log_probability = log_probability/tf.cast(timeslice_size-d, tf.float32)
 			return(log_probability)
 
-		def sample(self):
-			timeslice_size = self.W.get_shape().as_list()[0]
-			temp_samples = []
-			ct = 0
+	def sample(self):
+		timeslice_size = self.W.get_shape().as_list()[0]
+		temp_samples = []
+		ct = 0
 
-			with tf.variable_scope("OrderlessNADE_step"):
-				temp_a = self.a
-				while True:
-					p_vi = tf.sigmoid(tf.slice(self.b, begin = (0, ct), size = (-1, 1)) + tf.matmul(tf.sigmoid(temp_a), tf.slice(self.V,begin = (0, ct), size = (-1,1))) )
-					# The note at position ct is sampled according to a Bernouilli distribution of parameter p_vi
-					dist = tf.contrib.distributions.Bernoulli(p=p_vi, dtype=tf.float32)
-					vi = dist.sample()
-					temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
-					temp_samples.append(vi)
-					ct += 1
-					if  ct >= timeslice_size:
-						break
-			p_temp = tf.stack(temp_samples, axis = 1)
-			p = tf.squeeze(p_temp, axis = 2)
-			sampled_timeslice = p
-			return(sampled_timeslice)
-			# Does sampled_timeslice in Nade have the same shape as the shape of sample_timeslice as in Independent?
+		with tf.variable_scope("OrderlessNADE_step"):
+			temp_a = self.a
+			while True:
+				p_vi = tf.sigmoid(tf.slice(self.b, begin = (0, ct), size = (-1, 1)) + tf.matmul(tf.sigmoid(temp_a), tf.slice(self.V,begin = (0, ct), size = (-1,1))) )
+				# The note at position ct is sampled according to a Bernouilli distribution of parameter p_vi
+				dist = tf.contrib.distributions.Bernoulli(p=p_vi, dtype=tf.float32)
+				vi = dist.sample()
+				temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
+				temp_samples.append(vi)
+				ct += 1
+				if  ct >= timeslice_size:
+					break
+		p_temp = tf.stack(temp_samples, axis = 1)
+		p = tf.squeeze(p_temp, axis = 2)
+		sampled_timeslice = p
+		return(sampled_timeslice)
+		# Does sampled_timeslice in Nade have the same shape as the shape of sample_timeslice as in Independent?
