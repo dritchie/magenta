@@ -28,7 +28,7 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 	binary_counter_bits=6
 )
 
-model = RNNNade.from_file(log_dir + '/model.pickle', sequence_encoder)
+model = RNNOrderlessNadeConcat.from_file(log_dir + '/model.pickle', sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
 
 condition_dicts = []
