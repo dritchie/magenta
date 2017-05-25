@@ -1,7 +1,7 @@
 import sys
 import os
 import numpy as np
-from common.models import RNNNade
+from common.models import RNNOrderlessNadeConcat
 from common.sampling.metropolisHastings import MetropolisHastings
 from common.sampling.particleFilter import ParticleFilter
 import common.encoding as encoding
