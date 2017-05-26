@@ -1,0 +1,6 @@
+model_checkpoint_path: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-13071"
+all_model_checkpoint_paths: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-12852"
+all_model_checkpoint_paths: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-12907"
+all_model_checkpoint_paths: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-12962"
+all_model_checkpoint_paths: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-13015"
+all_model_checkpoint_paths: "/home/shreya/magenta/musicgen/experiments/rnn_orderlessnade_drums_concat/trainOutput/better-training/model.ckpt-13071"

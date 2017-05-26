@@ -1,0 +1,12 @@
+(dp1
+S'rnn_layer_sizes'
+p2
+(lp3
+I128
+aI128
+asS'dropout_keep_prob'
+p4
+F0.5
+sS'attn_length'
+p5
+Ns.
