@@ -19,8 +19,6 @@ from numpy import random
 
 def generate_track_ordering(N, timeslice_size):
 	non_ordered = np.zeros((N, timeslice_size))
-	print N
-	print timeslice_size
 
 	for i in xrange(0, N, 512):
 		song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
@@ -35,6 +33,9 @@ def generate_track_ordering(N, timeslice_size):
 	upper_sorted = np.sort(upper, axis=1, kind='quicksort', order=None)
 	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
 	return total.astype(np.int32)
+
+def fake_test(targets_flat):
+	print targets_flat[:512]
 
 def generate_ordering(N,d,timeslice_size):
 	# generate non ordered ordering. cannot generate random ordering for each row
@@ -135,7 +136,7 @@ class OrderlessNADEConcat:
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
 
 	def log_prob(self,targets_flat):
-		print targets_flat[:512].eval()
+		tf.py_func(generate_ordering, [targets_flat])
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
 		# timeslice_size = targets_flat.get_shape().as_list()[1]
