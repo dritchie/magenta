@@ -38,7 +38,7 @@ def generate_track_ordering(N, timeslice_size):
 
 def generate_ordering(N,d,timeslice_size):
 	# generate non ordered ordering. cannot generate random ordering for each row
-	print "N: " + str(N)
+	# print "N: " + str(N)
 	non_ordered = np.array([random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32) for _ in range(N)])
 	# order the first d-1 elements by pitch ascending order. order the last (timeslice-d+1) elements by pitch ascending order
 	lower = non_ordered[:,:d]
@@ -135,6 +135,7 @@ class OrderlessNADEConcat:
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
 
 	def log_prob(self,targets_flat):
+		print targets_flat[:512]
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
 		# timeslice_size = targets_flat.get_shape().as_list()[1]
@@ -143,7 +144,7 @@ class OrderlessNADEConcat:
 		# # d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
 		# d = 8
 		#
-		# ordering = tf.py_func(generate_track_ordering, [N,timeslice_size], tf.int32)
+		# ordering = tf.py_func(generate_ordering, [N, d, timeslice_size], tf.int32)
 		#
 		# offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		# log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
@@ -154,7 +155,8 @@ class OrderlessNADEConcat:
 		# 	while_condition = lambda log_probability,i: tf.less(i, timeslice_size - d )
 		#
 		# 	def body(log_probability,i):
-		# 		targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
+		# 		# targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
+		# 		targets_flat_mask_float = tf.ones((targets_flat.get_shape()), tf.float32)
 		# 		targets_flat_masked = targets_flat*targets_flat_mask_float
 		# 		h_1 = tf.sigmoid(tf.matmul(tf.concat([targets_flat_masked, targets_flat_mask_float], 1),self.W)+self.a)
 		#
