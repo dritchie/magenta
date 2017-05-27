@@ -35,7 +35,7 @@ condition_dicts = []
 for i in range(64):
 	condition_dicts.append({'known_notes': np.array([1, -1, -1, -1, -1, -1, -1, -1, -1])})
 
-sampler = MetropolisHastings(model, log_dir, batch_size=5)
+sampler = ParticleFilter(model, log_dir, batch_size=5)
 
 # Draw samples that are 64 steps long (4 steps per bar, I think?)
 samples = sampler.sample(64)
