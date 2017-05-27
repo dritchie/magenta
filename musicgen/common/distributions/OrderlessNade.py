@@ -135,7 +135,7 @@ class OrderlessNADEConcat:
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
 
 	def log_prob(self,targets_flat):
-		print targets_flat[:512]
+		print targets_flat[:512].eval()
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
 		# timeslice_size = targets_flat.get_shape().as_list()[1]
