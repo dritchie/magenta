@@ -52,6 +52,8 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 )
 
 dataset = SequenceDataset([data_filename], sequence_encoder)
+single = dataset.load_single()
+print single
 
 model = RNNOrderlessNadeConcat(model_params, dataset.sequence_encoder,size_hidden_layer=50)
 model.save(log_dir + '/model.pickle')
