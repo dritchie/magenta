@@ -2,6 +2,7 @@ import sys
 import os
 import copy
 import numpy as np
+import tensorflow as tf
 from common.models import RNNOrderlessNadeConcat
 from common.sampling.metropolisHastings import MetropolisHastings
 from common.sampling.particleFilter import ParticleFilter
