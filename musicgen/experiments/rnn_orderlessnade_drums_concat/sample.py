@@ -5,6 +5,7 @@ import numpy as np
 from common.models import RNNOrderlessNadeConcat
 from common.sampling.metropolisHastings import MetropolisHastings
 from common.sampling.particleFilter import ParticleFilter
+from common.datasets import SequenceDataset
 import common.encoding as encoding
 from common import utils
 import common.encoding.utils as enc_utils
