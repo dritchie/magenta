@@ -56,10 +56,14 @@ for i in range(len(song)):
 	d['known_notes'] = vec
 	condition_dicts.append(d)
 
+# condition_dicts = []
+# for i in range(64):
+# 	condition_dicts.append({'known_notes': np.array([1, -1, -1, -1, -1, -1, -1, -1, -1])})
+
 sampler = MetropolisHastings(model, log_dir, batch_size=5)
 
 # Draw samples that are 64 steps long (4 steps per bar, I think?)
-samples = sampler.sample(len(song), condition_dicts)
+samples = sampler.sample(64, condition_dicts = condition_dicts)
 
 # Convert samples: binaryvec -> pitches -> DrumTrack -> NoteSequence -> MIDI
 gen_dir = dir_path + '/generated/' + experiment_name
