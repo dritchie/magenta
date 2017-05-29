@@ -1,5 +1,6 @@
 import sys
 import os
+import copy
 import numpy as np
 from common.models import RNNOrderlessNadeConcat
 from common.sampling.metropolisHastings import MetropolisHastings
@@ -31,14 +32,24 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 model = RNNOrderlessNadeConcat.from_file(log_dir + '/model.pickle', sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
 
-condition_dicts = []
-for i in range(64):
-	condition_dicts.append({'known_notes': np.array([1, -1, -1, -1, -1, -1, -1, -1, -1])})
+dataset = SequenceDataset([data_filename], sequence_encoder)
+features = dataset.load_single()
+_features = tf.contrib.learn.run_n(features, n=1)
+song = _features[0]['outputs']
+print song
 
-sampler = ParticleFilter(model, log_dir, batch_size=5)
+condition_dicts = []
+for i in range(len(song)):
+	d = {}
+	vec = copy.deepcopy(song[i])
+	vec[8] = -1
+	d['known_notes'] = vec
+	condition_dicts.append(d)
+
+sampler = MetropolisHastings(model, log_dir, batch_size=5)
 
 # Draw samples that are 64 steps long (4 steps per bar, I think?)
-samples = sampler.sample(64)
+samples = sampler.sample(len(song), condition_dicts)
 
 # Convert samples: binaryvec -> pitches -> DrumTrack -> NoteSequence -> MIDI
 gen_dir = dir_path + '/generated/' + experiment_name
