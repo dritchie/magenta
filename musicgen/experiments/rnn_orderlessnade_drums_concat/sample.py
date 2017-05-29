@@ -33,6 +33,14 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 model = RNNOrderlessNadeConcat.from_file(log_dir + '/model.pickle', sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
 
+timeslice_encoder = encoding.IdentityTimeSliceEncoder(encoding.DrumTimeSliceEncoder().output_size)
+
+data_filename = '/mnt/nfs_datasets/lakh_midi_full/drums_lookback_meter/training_drum_tracks.tfrecord'
+sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
+	lookback_distances=[],
+	binary_counter_bits=6
+)
+
 dataset = SequenceDataset([data_filename], sequence_encoder)
 features = dataset.load_single()
 _features = tf.contrib.learn.run_n(features, n=1)
