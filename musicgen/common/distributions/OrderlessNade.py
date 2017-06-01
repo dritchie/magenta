@@ -19,6 +19,7 @@ from numpy import random
 
 def generate_track_ordering(N, timeslice_size):
 	non_ordered = np.zeros((N, timeslice_size))
+	print N
 
 	for i in xrange(0, N, 512):
 		song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
@@ -84,7 +85,7 @@ class OrderlessNADE:
 		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
 		d = 8
 
-		ordering = tf.py_func(generate_track_ordering, [N,timeslice_size], tf.int32)
+		ordering = tf.py_func(generate_ordering, [N, d,timeslice_size], tf.int32)
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
@@ -136,73 +137,76 @@ class OrderlessNADEConcat:
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
 
 	def log_prob(self,targets_flat):
-		tf.py_func(generate_ordering, [targets_flat])
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
-		# timeslice_size = targets_flat.get_shape().as_list()[1]
-		# N = tf.shape(targets_flat)[0]
-		# #N = targets_flat.get_shape().as_list()[0]
-		# # d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
-		# d = 8
-		#
-		# ordering = tf.py_func(generate_ordering, [N, d, timeslice_size], tf.int32)
-		#
-		# offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
-		# log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
-		# with tf.variable_scope("OrderlessNADE_step"):
-		# 	row_indices = tf.py_func(get_row_indices, [ordering], tf.int32)
-		# 	# targets are already flattened? targets_flat = tf.reshape(targets, (-1, timeslice_size))
-		# 	index = tf.constant(0)
-		# 	while_condition = lambda log_probability,i: tf.less(i, timeslice_size - d )
-		#
-		# 	def body(log_probability,i):
-		# 		# targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
-		# 		targets_flat_mask_float = tf.ones((targets_flat.get_shape()), tf.float32)
-		# 		targets_flat_masked = targets_flat*targets_flat_mask_float
-		# 		h_1 = tf.sigmoid(tf.matmul(tf.concat([targets_flat_masked, targets_flat_mask_float], 1),self.W)+self.a)
-		#
-		# 		o_d = ordering[:,d+i]
-		# 		coords = tf.transpose(tf.stack([row_indices, o_d]))
-		# 		temp_b =  tf.gather_nd(self.b, coords)
-		#
-		# 		p_shape = tf.shape(self.V)
-		# 		p_flat = tf.reshape(self.V, [-1])
-		# 		i_temp = tf.reshape(tf.range(0, p_shape[0]) * p_shape[1], [1, -1])
-		# 		i_flat = tf.reshape( i_temp + tf.reshape(o_d,[-1,1]), [-1])
-		# 		temp_Z = tf.gather(p_flat, i_flat)
-		# 		Z =  tf.reshape(temp_Z, [-1,p_shape[0]] )
-		#
-		# 		temp_product = tf.reduce_sum( h_1*Z, 1)
-		#
-		# 		p_o_d=tf.sigmoid(temp_b + temp_product)
-		# 		v_o_d = tf.gather_nd(targets_flat, coords)
-		#
-		# 		log_prob = tf.multiply(v_o_d,tf.log(p_o_d + offset)) + tf.multiply((1-v_o_d),tf.log((1-p_o_d) + offset))
-		# 		log_prob = tf.reshape(log_prob, (tf.shape(log_prob)[0],))
-		# 		log_probability += log_prob
-		# 		return [log_probability,tf.add(i, 1)]
-		#
-		# 	log_probability,_ = tf.while_loop(while_condition, body, [log_probability,index])
-		# 	log_probability = log_probability/tf.cast(timeslice_size-d, tf.float32)
-		# 	return(log_probability)
+		# print "heree"
 		timeslice_size = targets_flat.get_shape().as_list()[1]
-		ct = 0
+		# N = tf.shape(targets_flat)[0]
+		N = targets_flat.get_shape().as_list()[0]
+		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
+		d = 8
+
+		ordering = tf.py_func(generate_track_ordering, [N, timeslice_size], tf.int32)
+
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
-		log_probability = 0
+		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
 		with tf.variable_scope("OrderlessNADE_step"):
-			temp_a = self.a
-			while True:
-				hi = tf.sigmoid(temp_a)
-				p_vi = tf.sigmoid(tf.slice(self.b,begin = (0, ct), size = (-1, 1)) + tf.matmul(hi, tf.slice(self.V, begin = (0, ct), size = (-1, 1))) )
-				vi = tf.slice(targets_flat, begin = (0, ct), size = (-1, 1))
-				temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
-				log_prob = tf.multiply(vi,tf.log(p_vi + offset)) + tf.multiply((1-vi),tf.log((1-p_vi) + offset))
-				log_probability = log_probability + log_prob
-				ct += 1
-				if  ct >= timeslice_size:
-					break
-		#print('log_probability: check shape!!', log_probability)
-		return(log_probability)
+			row_indices = tf.py_func(get_row_indices, [ordering], tf.int32)
+			# targets are already flattened? targets_flat = tf.reshape(targets, (-1, timeslice_size))
+			index = tf.constant(0)
+			while_condition = lambda log_probability,i: tf.less(i, timeslice_size - d )
+
+			def body(log_probability,i):
+				# print log_probability.get_shape()
+				targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
+				# targets_flat_mask_float = tf.ones((targets_flat.get_shape()), tf.float32)
+				targets_flat_masked = targets_flat*targets_flat_mask_float
+				h_1 = tf.sigmoid(tf.matmul(tf.concat([targets_flat_masked, targets_flat_mask_float], 1),self.W)+self.a)
+
+				o_d = ordering[:,d+i]
+				coords = tf.transpose(tf.stack([row_indices, o_d]))
+				temp_b =  tf.gather_nd(self.b, coords)
+
+				p_shape = tf.shape(self.V)
+				p_flat = tf.reshape(self.V, [-1])
+				i_temp = tf.reshape(tf.range(0, p_shape[0]) * p_shape[1], [1, -1])
+				i_flat = tf.reshape( i_temp + tf.reshape(o_d,[-1,1]), [-1])
+				temp_Z = tf.gather(p_flat, i_flat)
+				Z =  tf.reshape(temp_Z, [-1,p_shape[0]] )
+
+				temp_product = tf.reduce_sum( h_1*Z, 1)
+
+				p_o_d=tf.sigmoid(temp_b + temp_product)
+				v_o_d = tf.gather_nd(targets_flat, coords)
+
+				log_prob = tf.multiply(v_o_d,tf.log(p_o_d + offset)) + tf.multiply((1-v_o_d),tf.log((1-p_o_d) + offset))
+				log_prob = tf.reshape(log_prob, (tf.shape(log_prob)[0],))
+				log_probability += log_prob
+				# print log_probability.get_shape()
+				return [log_probability,tf.add(i, 1)]
+
+			log_probability,_ = tf.while_loop(while_condition, body, [log_probability,index])
+			log_probability = log_probability/tf.cast(timeslice_size-d, tf.float32)
+			print log_probability
+			return(log_probability)
+		# timeslice_size = targets_flat.get_shape().as_list()[1]
+		# ct = 0
+		# offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
+		# log_probability = 0
+		# with tf.variable_scope("OrderlessNADE_step"):
+		# 	temp_a = self.a
+		# 	while True:
+		# 		hi = tf.sigmoid(temp_a)
+		# 		p_vi = tf.sigmoid(tf.slice(self.b,begin = (0, ct), size = (-1, 1)) + tf.matmul(hi, tf.slice(self.V, begin = (0, ct), size = (-1, 1))) )
+		# 		vi = tf.slice(targets_flat, begin = (0, ct), size = (-1, 1))
+		# 		temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
+		# 		log_prob = tf.multiply(vi,tf.log(p_vi + offset)) + tf.multiply((1-vi),tf.log((1-p_vi) + offset))
+		# 		log_probability = log_probability + log_prob
+		# 		ct += 1
+		# 		if  ct >= timeslice_size:
+		# 			break
+		# #print('log_probability: check shape!!', log_probability)
+		# return(log_probability)
 
 	def sample(self):
 		timeslice_size = self.W.get_shape().as_list()[0]
