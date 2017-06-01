@@ -141,8 +141,8 @@ class OrderlessNADEConcat:
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
 		# print "heree"
 		timeslice_size = targets_flat.get_shape().as_list()[1]
-		# N = tf.shape(targets_flat)[0]
-		N = targets_flat.get_shape().as_list()[0]
+		N = tf.shape(targets_flat)[0]
+		# N = targets_flat.get_shape().as_list()[0]
 		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
 		d = 8
 
