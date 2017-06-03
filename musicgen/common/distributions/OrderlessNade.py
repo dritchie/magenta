@@ -35,13 +35,18 @@ def generate_track_ordering(N, timeslice_size):
 	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
 	return total.astype(np.int32)
 
-def fake_test(targets_flat):
-	print targets_flat[:512]
-
+# this isn't good because a random ordering is generated every time...
 def generate_ordering(N,d,timeslice_size):
 	# generate non ordered ordering. cannot generate random ordering for each row
 	# print "N: " + str(N)
-	non_ordered = np.array([random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32) for _ in range(N)])
+	# non_ordered = np.array([random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32) for _ in range(N)])
+	# for i in range(len(non_ordered)):
+	# 	if non_ordered[i] is 2:
+	# 		non_ordered[i] = non_ordered[8]
+	# 		non_ordered[8] = 2
+	# 		break
+	non_ordered = np.array([np.array([0, 1, 8, 3, 4, 5, 6, 7, 2]).astype(np.int32) for _ in range(N)])
+
 	# order the first d-1 elements by pitch ascending order. order the last (timeslice-d+1) elements by pitch ascending order
 	lower = non_ordered[:,:d]
 	upper = non_ordered[:,d:]
@@ -132,21 +137,29 @@ The same class as above; except that we concatenate the input vector with the ma
 class OrderlessNADEConcat:
 	"""OrderlessNADE distribution. """
 
-	def __init__(self,a,b,W,V,dtype=tf.float32):
+	# put self.ordering here and pass in tf.py_func(generate_ordering, [N, d,timeslice_size], tf.int32)
+	def __init__(self,a,b,W,V,ordering, batch_size, dtype=tf.float32):
 		"""Construct Bernoulli distributions."""
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
+		self.ordering = ordering
+		self.batch_size = batch_size
 
 	def log_prob(self,targets_flat):
 		# assumes that targets is flattened
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
-		# print "heree"
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
 		# N = targets_flat.get_shape().as_list()[0]
-		# d = tf.random_uniform([], minval=0, maxval=timeslice_size, dtype=tf.int32)
-		d = 8
+		d = timeslice_size - 1
+		n = targets_flat.get_shape().as_list()[0]
+		print n
 
-		ordering = tf.py_func(generate_track_ordering, [N, timeslice_size], tf.int32)
+		# if sampling
+		# ordering = tf.stack([self.ordering for _ in range(n)])
+
+		# if training
+		ordering = tf.concat([self.ordering for _ in range(self.batch_size)], 0)
+		print ordering
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
@@ -187,7 +200,7 @@ class OrderlessNADEConcat:
 
 			log_probability,_ = tf.while_loop(while_condition, body, [log_probability,index])
 			log_probability = log_probability/tf.cast(timeslice_size-d, tf.float32)
-			print log_probability
+			log_probability = tf.reshape(log_probability, [tf.shape(log_probability)[0], 1])
 			return(log_probability)
 		# timeslice_size = targets_flat.get_shape().as_list()[1]
 		# ct = 0

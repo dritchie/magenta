@@ -7,7 +7,7 @@ def batchify_dict(dic, batch_size):
 
 class ForwardSample(object):
 
-	def __init__(self, model, checkpoint_dir, batch_size=1):
+	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_track = -1):
 		self.model = model
 		# how many sequences are going in parallel
 		self.batch_size = batch_size
@@ -19,6 +19,7 @@ class ForwardSample(object):
 		}
 		self.rnn_state = model.initial_state(batch_size)
 		self.final_state, self.rnn_outputs = model.run_rnn(self.rnn_state, self.input_placeholder)
+		self.masked_track = masked_track
 		self.dist = model.get_step_dist(self.rnn_outputs, self.condition_dict_placeholders)
 		self.sampled_timeslice = self.dist.sample()
 
@@ -124,6 +125,3 @@ class ForwardSample(object):
 		sample = sample[:,np.newaxis,:]
 
 		return next_state, sample
-
-
-

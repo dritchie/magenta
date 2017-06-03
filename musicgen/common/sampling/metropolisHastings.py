@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import copy
 import random
 from common.sampling.forward import ForwardSample, batchify_dict
+from sklearn.preprocessing import MinMaxScaler, normalize
 
 class MetropolisHastings(ForwardSample):
 
-	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000):
+	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_track = -1):
 		super(MetropolisHastings, self).__init__(model, checkpoint_dir, batch_size)
 		self.rnn_states = []
 		self.sample_placeholder = tf.placeholder(dtype = tf.float32, shape=[batch_size, self.model.timeslice_size], name = "samples")
@@ -98,7 +99,12 @@ class MetropolisHastings(ForwardSample):
 
 		after_flip_probs = log_probabilities_copy.sum(axis = 0)
 
-		a = np.exp(np.array([before_flip_probs[rand_batch], after_flip_probs[rand_batch]]))
+		a = np.array([before_flip_probs[rand_batch], after_flip_probs[rand_batch]])
+		# scaler = MinMaxScaler()
+		# a = scaler.fit_transform(a)
+		# a = normalize(a, norm='l1', axis=1, copy=True)
+		# print a
+		a = np.exp(a)
 		a = a / sum(a)
 
 		if random.random() > a[0]:
