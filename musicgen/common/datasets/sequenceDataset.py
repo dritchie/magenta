@@ -1,6 +1,7 @@
 import abc
 import tensorflow as tf
 from common.datasets.dataset import Dataset
+from common.models.utils import generate_sample_ordering, generate_track_ordering
 
 """
 Base class for sequence datasets
@@ -18,7 +19,7 @@ class SequenceDataset(Dataset):
 		reader = tf.TFRecordReader()
 		_, serializedExample = reader.read(filenameQueue)
 		sequenceFeatures = self.sequence_encoder.parse(serializedExample)
-		
+
 		anyfeature = sequenceFeatures.values()[0]
 		lengths = tf.shape(anyfeature)[0]
 		sequenceFeatures['lengths'] = lengths
@@ -26,11 +27,14 @@ class SequenceDataset(Dataset):
 
 	def load_batch(self, batch_size, num_threads=2):
 		sequenceFeatures = self.load_single()
-		return tf.train.batch(
+		timeslice_size = sequenceFeatures['outputs'].get_shape()[1]
+		sequenceBatch = tf.train.batch(
 			tensors=sequenceFeatures,
 			batch_size=batch_size,
 			num_threads=num_threads,
 			capacity=3*batch_size,
 			dynamic_pad=True
 		)
-
+		# add 'ordering' to sequenceBatch so we can specify ordering
+		sequenceBatch['ordering'] = tf.py_func(generate_track_ordering, [timeslice_size], tf.int32)
+		return sequenceBatch

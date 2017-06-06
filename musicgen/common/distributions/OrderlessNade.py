@@ -152,14 +152,12 @@ class OrderlessNADEConcat:
 		# N = targets_flat.get_shape().as_list()[0]
 		d = timeslice_size - 1
 		n = targets_flat.get_shape().as_list()[0]
-		print n
 
 		# if sampling
 		# ordering = tf.stack([self.ordering for _ in range(n)])
 
 		# if training
 		ordering = tf.concat([self.ordering for _ in range(self.batch_size)], 0)
-		print ordering
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)
@@ -174,6 +172,7 @@ class OrderlessNADEConcat:
 				targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
 				# targets_flat_mask_float = tf.ones((targets_flat.get_shape()), tf.float32)
 				targets_flat_masked = targets_flat*targets_flat_mask_float
+				# import pdb; pdb.set_trace()
 				h_1 = tf.sigmoid(tf.matmul(tf.concat([targets_flat_masked, targets_flat_mask_float], 1),self.W)+self.a)
 
 				o_d = ordering[:,d+i]
@@ -185,6 +184,7 @@ class OrderlessNADEConcat:
 				i_temp = tf.reshape(tf.range(0, p_shape[0]) * p_shape[1], [1, -1])
 				i_flat = tf.reshape( i_temp + tf.reshape(o_d,[-1,1]), [-1])
 				temp_Z = tf.gather(p_flat, i_flat)
+				# import pdb; pdb.set_trace()
 				Z =  tf.reshape(temp_Z, [-1,p_shape[0]] )
 
 				temp_product = tf.reduce_sum( h_1*Z, 1)
@@ -202,24 +202,6 @@ class OrderlessNADEConcat:
 			log_probability = log_probability/tf.cast(timeslice_size-d, tf.float32)
 			log_probability = tf.reshape(log_probability, [tf.shape(log_probability)[0], 1])
 			return(log_probability)
-		# timeslice_size = targets_flat.get_shape().as_list()[1]
-		# ct = 0
-		# offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
-		# log_probability = 0
-		# with tf.variable_scope("OrderlessNADE_step"):
-		# 	temp_a = self.a
-		# 	while True:
-		# 		hi = tf.sigmoid(temp_a)
-		# 		p_vi = tf.sigmoid(tf.slice(self.b,begin = (0, ct), size = (-1, 1)) + tf.matmul(hi, tf.slice(self.V, begin = (0, ct), size = (-1, 1))) )
-		# 		vi = tf.slice(targets_flat, begin = (0, ct), size = (-1, 1))
-		# 		temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
-		# 		log_prob = tf.multiply(vi,tf.log(p_vi + offset)) + tf.multiply((1-vi),tf.log((1-p_vi) + offset))
-		# 		log_probability = log_probability + log_prob
-		# 		ct += 1
-		# 		if  ct >= timeslice_size:
-		# 			break
-		# #print('log_probability: check shape!!', log_probability)
-		# return(log_probability)
 
 	def sample(self):
 		timeslice_size = self.W.get_shape().as_list()[0]
