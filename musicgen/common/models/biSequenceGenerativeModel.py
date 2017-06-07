@@ -181,7 +181,7 @@ class BiSequenceGenerativeModel(Model):
 		ordering_mask[dim_1_idx[:, None], col_idx]=1
 		bits = np.ones((ordering_mask.shape[0], 6))
 		ordering_mask = np.concatenate([ordering_mask, bits], axis = 1)
-		mask = ordering_mask.reshape((inputs.shape[0], inputs.shape[1], inputs.shape[2] + 6))
+		mask = ordering_mask.reshape((inputs.shape[0], -1, inputs.shape[2] + 6))
 		return mask
 
 
