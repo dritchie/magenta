@@ -209,7 +209,7 @@ class BiSequenceGenerativeModel(Model):
 		reversed_inputs = tf.reverse(inputs, [-2])
 		conditioning_mask = tf.py_func(self.create_conditioning_mask, [reversed_inputs, ordering], tf.float32)
 		backward_inputs = reversed_inputs * conditioning_mask
-		backward_inputs = tf.concat([backward_inputs, ordering_mask[:, :, :self.timeslice_size]], 2)
+		backward_inputs = tf.concat([backward_inputs, conditioning_mask[:, :, :self.timeslice_size]], 2)
 		backward_inputs.set_shape([None, None, reversed_inputs.get_shape()[2] + self.timeslice_size])
 		_, rnn_backward_outputs = self.run_backward_rnn(self.initial_backward_state(batch_size), backward_inputs)
 		dist = self.get_step_dist(rnn_forward_outputs, rnn_backward_outputs, self.batch_to_condition_dict(batch), targets.get_shape()[0])
