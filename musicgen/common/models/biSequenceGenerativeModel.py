@@ -1,6 +1,6 @@
 import abc
 from common.models.model import Model
-from common.models.utils import make_rnn_cell
+from common.models.utils import make_birnn_cell
 import tensorflow as tf
 import numpy as np
 import copy
@@ -47,7 +47,7 @@ class BiSequenceGenerativeModel(Model):
 	"""
 	def forward_rnn_cell(self):
 		if self._forward_rnn_cell is None:
-			self._forward_rnn_cell = make_rnn_cell("forward", self.hparams.rnn_layer_sizes,
+			self._forward_rnn_cell = make_birnn_cell("forward", self.hparams.rnn_layer_sizes,
 							 	dropout_keep_prob=self.hparams.dropout_keep_prob,
 							 	attn_length=self.hparams.attn_length)
 		return self._forward_rnn_cell
@@ -58,7 +58,7 @@ class BiSequenceGenerativeModel(Model):
 	"""
 	def backward_rnn_cell(self):
 		if self._backward_rnn_cell is None:
-			self._backward_rnn_cell = make_rnn_cell("backward", self.hparams.rnn_layer_sizes,
+			self._backward_rnn_cell = make_birnn_cell("backward", self.hparams.rnn_layer_sizes,
 							 	dropout_keep_prob=self.hparams.dropout_keep_prob,
 							 	attn_length=self.hparams.attn_length)
 		return self._backward_rnn_cell
@@ -97,12 +97,28 @@ class BiSequenceGenerativeModel(Model):
 	"""
 	# question -- this only depends on timeslice history and condition dict, right? can be used
 	# for both forward and backward rnns?
-	def next_rnn_input(self, timeslice_history, condition_dict):
+	def next_forward_rnn_input(self, timeslice_history, condition_dict):
 		index = len(timeslice_history) - 1
 		return self.sequence_encoder.rnn_input_for_timeslice(timeslice_history, index, condition_dict)
 
 	# make new method that is next backward rnn input, where we specify index, condition dict
 	# as timeslice history
+	def next_backward_rnn_input(self, timeslice_future, condition_dict, masked_track):
+		index = len(timeslice_future) - 1
+		# bits = forward_input[self.timeslice_size:]
+		input_without_mask = self.sequence_encoder.rnn_input_for_timeslice(timeslice_future[::-1], index, condition_dict)
+		mask = np.ones(self.timeslice_size)
+		mask[masked_track] = 0
+		return np.concatenate([input_without_mask, mask])
+
+	def get_backward_rnn_inputs(self, timeslice_futures, condition_dict, masked_track):
+		index = len(timeslice_future) - 1
+		# bits = forward_input[self.timeslice_size:]
+		for index in range(len(timeslice_future - 1)):
+			input_without_mask = self.sequence_encoder.rnn_input_for_timeslice(timeslice_futures[:index + 1], index, condition_dict)
+			mask = np.ones(self.timeslice_size)
+			mask[masked_track] = 0
+			return np.concatenate([input_without_mask, mask])
 
 	"""
 	Run the forward RNN cell over the provided input vector, starting with initial_state
@@ -156,9 +172,16 @@ class BiSequenceGenerativeModel(Model):
 		"""
 	# creates mask of all 1s except last note 0 so the backward rnn sees only
 	# conditioning info
-	def create_conditioning_mask(self, inputs):
-		mask = np.ones_like(inputs, dtype = np.float32)
-		mask[:, :, self.timeslice_size - 1] = 0
+	def create_conditioning_mask(self, inputs, ordering):
+		# mask = np.ones_like(inputs, dtype = np.float32)
+		# mask[:, :, index] = 0
+		ordering_mask = np.zeros_like(ordering, dtype = np.float32)
+		col_idx = ordering[:,:self.timeslice_size - 1]
+		dim_1_idx = np.array(range(ordering.shape[0]))
+		ordering_mask[dim_1_idx[:, None], col_idx]=1
+		bits = np.ones((ordering_mask.shape[0], 6))
+		ordering_mask = np.concatenate([ordering_mask, bits], axis = 1)
+		mask = ordering_mask.reshape(inputs.shape)
 		return mask
 
 
@@ -184,9 +207,9 @@ class BiSequenceGenerativeModel(Model):
 		_, rnn_forward_outputs = self.run_forward_rnn(self.initial_forward_state(batch_size), inputs)
 		# reverse inputs, make mask and concatenate
 		reversed_inputs = tf.reverse(inputs, [-2])
-		conditioning_mask = tf.py_func(self.create_conditioning_mask, [reversed_inputs], tf.float32)
+		conditioning_mask = tf.py_func(self.create_conditioning_mask, [reversed_inputs, ordering], tf.float32)
 		backward_inputs = reversed_inputs * conditioning_mask
-		backward_inputs = tf.concat([backward_inputs, conditioning_mask[:, :, :self.timeslice_size]], 2)
+		backward_inputs = tf.concat([backward_inputs, ordering_mask[:, :, :self.timeslice_size]], 2)
 		backward_inputs.set_shape([None, None, reversed_inputs.get_shape()[2] + self.timeslice_size])
 		_, rnn_backward_outputs = self.run_backward_rnn(self.initial_backward_state(batch_size), backward_inputs)
 		dist = self.get_step_dist(rnn_forward_outputs, rnn_backward_outputs, self.batch_to_condition_dict(batch), targets.get_shape()[0])
