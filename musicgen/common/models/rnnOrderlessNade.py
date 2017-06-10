@@ -62,6 +62,12 @@ class RNNOrderlessNadeConcat(BiSequenceGenerativeModel):
 			scope.reuse_variables()
 
 		ordering = condition_dict['ordering']
+		d = condition_dict['d']
+		if 'known_notes' in condition_dict:
+			known_notes = condition_dict['known_notes']
+		else:
+			known_notes = None
+		#pass in known notes
 
 		# Combine batch and time dimensions so we have a 2D tensor (i.e. a list of
 		#    of opts.num_notes-long tensors). Need for layers.linear, I think?
@@ -81,8 +87,22 @@ class RNNOrderlessNadeConcat(BiSequenceGenerativeModel):
 
 		# Create and return OrderlessNADE object
 		# (sample dtype is float so samples can be fed right back into inputs)
-		dist = OrderlessNADEConcat(a,b,W,V,ordering, batch_size, dtype=tf.float32)
+		dist = OrderlessNADEConcat(a,b,W,V,ordering, batch_size, d = d, known_notes = known_notes, dtype=tf.float32)
 		return dist
 
 	def eval_factor_function(self, sample, condition):
-		return
+		if len(condition) == 0:
+			return 0
+
+		for index in range(len(condition)):
+			if index == len(condition) - 1:
+				if condition[index] == -1 or condition[index] == sample[index]:
+					break
+				else:
+					return float('-inf')
+			elif condition[index] == -1:
+				continue
+			elif condition[index] != sample[index]:
+				return float('-inf')
+
+		return 0
