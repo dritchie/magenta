@@ -36,5 +36,7 @@ class SequenceDataset(Dataset):
 			dynamic_pad=True
 		)
 		# add 'ordering' to sequenceBatch so we can specify ordering
-		sequenceBatch['ordering'] = tf.py_func(generate_track_ordering, [timeslice_size], tf.int32)
+		ordering, d = tf.py_func(generate_track_ordering, [timeslice_size], (tf.int32, tf.int32))
+		sequenceBatch['ordering'] = ordering
+		sequenceBatch['d'] = d
 		return sequenceBatch
