@@ -61,14 +61,15 @@ def generate_sample_ordering(d, timeslice_size):
 
 # generates order of tracks for sample at training time
 def generate_track_ordering(timeslice_size):
+	d = np.random.randint(0, timeslice_size, dtype = np.int32)
 	song_order = random.choice(range(timeslice_size), size=timeslice_size, replace=False, p=None).astype(np.int32)
 	non_ordered = np.array([song_order for _ in range(512)])
 
 	# order the all elements by pitch ascending order except one element at the end (masked)
-	lower = non_ordered[:,:timeslice_size - 1]
-	upper = non_ordered[:,timeslice_size - 1:]
+	lower = non_ordered[:,:d]
+	upper = non_ordered[:,d:]
 
 	lower_sorted = np.sort(lower, axis=1, kind='quicksort', order=None)
 	upper_sorted = np.sort(upper, axis=1, kind='quicksort', order=None)
 	total = np.concatenate((lower_sorted, upper_sorted), axis=1)
-	return total.astype(np.int32)
+	return total.astype(np.int32), d

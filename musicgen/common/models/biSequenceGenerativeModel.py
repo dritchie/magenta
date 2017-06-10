@@ -39,7 +39,7 @@ class BiSequenceGenerativeModel(Model):
 	@property
 	def condition_shapes(self):
 		# return self.sequence_encoder.condition_shapes
-		return {'ordering': np.array([9])}
+		return {'ordering': np.array([9]), 'd': np.array([1])}
 
 	"""
 	Build the sub-graph for the RNN forward cell
@@ -111,14 +111,16 @@ class BiSequenceGenerativeModel(Model):
 		mask[masked_track] = 0
 		return np.concatenate([input_without_mask, mask])
 
-	def get_backward_rnn_inputs(self, timeslice_futures, condition_dict, masked_track):
-		index = len(timeslice_future) - 1
+	def get_backward_rnn_inputs(self, timeslice_futures, condition_dicts, masked_track):
+		# index = len(timeslice_futures) - 1
 		# bits = forward_input[self.timeslice_size:]
-		for index in range(len(timeslice_future - 1)):
-			input_without_mask = self.sequence_encoder.rnn_input_for_timeslice(timeslice_futures[:index + 1], index, condition_dict)
+		inputs = []
+		for index in range(len(timeslice_futures) - 1):
+			back_input = self.sequence_encoder.rnn_input_for_timeslice(timeslice_futures[:index + 1], index, condition_dicts[index])
 			mask = np.ones(self.timeslice_size)
 			mask[masked_track] = 0
-			return np.concatenate([input_without_mask, mask])
+			inputs.append(np.concatenate([back_input, mask]))
+		return np.array(inputs)
 
 	"""
 	Run the forward RNN cell over the provided input vector, starting with initial_state
@@ -170,19 +172,18 @@ class BiSequenceGenerativeModel(Model):
 		Condition is an array of 1s, 0s, and -1s that specifies what the sample should be.
 
 		"""
+
 	# creates mask of all 1s except last note 0 so the backward rnn sees only
 	# conditioning info
 	def create_conditioning_mask(self, inputs, ordering):
-		# mask = np.ones_like(inputs, dtype = np.float32)
-		# mask[:, :, index] = 0
 		ordering_mask = np.zeros_like(ordering, dtype = np.float32)
 		col_idx = ordering[:,:self.timeslice_size - 1]
 		dim_1_idx = np.array(range(ordering.shape[0]))
 		ordering_mask[dim_1_idx[:, None], col_idx]=1
 		bits = np.ones((ordering_mask.shape[0], 6))
 		ordering_mask = np.concatenate([ordering_mask, bits], axis = 1)
-		mask = ordering_mask.reshape((inputs.shape[0], -1, inputs.shape[2] + 6))
-		return mask
+		o = ordering_mask[0]
+		return np.tile(o, (inputs.shape[0], inputs.shape[1], 1)).astype(np.float32)
 
 
 	"""
@@ -199,6 +200,7 @@ class BiSequenceGenerativeModel(Model):
 		targets = batch['outputs']
 		lengths = batch['lengths']
 		ordering = batch['ordering']
+		d = batch['d']
 
 		batch_size = tf.shape(targets)[0]
 		num_time_slices = tf.to_float(tf.reduce_sum(lengths))

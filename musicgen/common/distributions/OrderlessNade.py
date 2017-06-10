@@ -138,11 +138,13 @@ class OrderlessNADEConcat:
 	"""OrderlessNADE distribution. """
 
 	# put self.ordering here and pass in tf.py_func(generate_ordering, [N, d,timeslice_size], tf.int32)
-	def __init__(self,a,b,W,V,ordering, batch_size, dtype=tf.float32):
+	def __init__(self,a,b,W,V,ordering, batch_size, d = None, known_notes = None, dtype=tf.float32):
 		"""Construct Bernoulli distributions."""
 		self.a,self.b,self.W,self.V,self.dtype=a,b,W,V,dtype
 		self.ordering = ordering
 		self.batch_size = batch_size
+		self.known_notes = known_notes
+		self.d = d
 
 	def log_prob(self,targets_flat):
 		# assumes that targets is flattened
@@ -150,11 +152,13 @@ class OrderlessNADEConcat:
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
 		# N = targets_flat.get_shape().as_list()[0]
-		d = timeslice_size - 1
+		d = self.d
 		n = targets_flat.get_shape().as_list()[0]
 
 		# if sampling
-		# ordering = tf.stack([self.ordering for _ in range(n)])
+		# ordering = tf.cast(tf.stack([self.ordering for _ in range(n)]), tf.int32)
+		# ordering = tf.cast(self.ordering, tf.int32)
+		# ordering = tf.reshape(ordering, [tf.shape(ordering)[0] * tf.shape(ordering)[1], tf.shape(ordering)[2]])
 
 		# if training
 		ordering = tf.concat([self.ordering for _ in range(self.batch_size)], 0)
@@ -170,13 +174,12 @@ class OrderlessNADEConcat:
 			def body(log_probability,i):
 				# print log_probability.get_shape()
 				targets_flat_mask_float = tf.py_func(get_mask_float, [ordering,d + i], tf.float32)
-				# targets_flat_mask_float = tf.ones((targets_flat.get_shape()), tf.float32)
 				targets_flat_masked = targets_flat*targets_flat_mask_float
-				# import pdb; pdb.set_trace()
 				h_1 = tf.sigmoid(tf.matmul(tf.concat([targets_flat_masked, targets_flat_mask_float], 1),self.W)+self.a)
 
 				o_d = ordering[:,d+i]
-				coords = tf.transpose(tf.stack([row_indices, o_d]))
+				stack = tf.stack([row_indices, o_d])
+				coords = tf.transpose(stack)
 				temp_b =  tf.gather_nd(self.b, coords)
 
 				p_shape = tf.shape(self.V)
@@ -184,7 +187,6 @@ class OrderlessNADEConcat:
 				i_temp = tf.reshape(tf.range(0, p_shape[0]) * p_shape[1], [1, -1])
 				i_flat = tf.reshape( i_temp + tf.reshape(o_d,[-1,1]), [-1])
 				temp_Z = tf.gather(p_flat, i_flat)
-				# import pdb; pdb.set_trace()
 				Z =  tf.reshape(temp_Z, [-1,p_shape[0]] )
 
 				temp_product = tf.reduce_sum( h_1*Z, 1)
@@ -195,7 +197,6 @@ class OrderlessNADEConcat:
 				log_prob = tf.multiply(v_o_d,tf.log(p_o_d + offset)) + tf.multiply((1-v_o_d),tf.log((1-p_o_d) + offset))
 				log_prob = tf.reshape(log_prob, (tf.shape(log_prob)[0],))
 				log_probability += log_prob
-				# print log_probability.get_shape()
 				return [log_probability,tf.add(i, 1)]
 
 			log_probability,_ = tf.while_loop(while_condition, body, [log_probability,index])
@@ -204,17 +205,25 @@ class OrderlessNADEConcat:
 			return(log_probability)
 
 	def sample(self):
-		timeslice_size = self.W.get_shape().as_list()[0]
+		timeslice_size = self.W.get_shape().as_list()[0]/2
 		temp_samples = []
 		ct = 0
 
 		with tf.variable_scope("OrderlessNADE_step"):
 			temp_a = self.a
 			while True:
-				p_vi = tf.sigmoid(tf.slice(self.b, begin = (0, ct), size = (-1, 1)) + tf.matmul(tf.sigmoid(temp_a), tf.slice(self.V,begin = (0, ct), size = (-1,1))) )
+				slic = tf.slice(self.b, begin = (0, ct), size = (-1, 1))
+				slic2 = tf.slice(self.V,begin = (0, ct), size = (-1,1))
+				p_vi = tf.sigmoid(slic + tf.matmul(tf.sigmoid(temp_a), slic2) )
 				# The note at position ct is sampled according to a Bernouilli distribution of parameter p_vi
 				dist = tf.contrib.distributions.Bernoulli(p=p_vi, dtype=tf.float32)
-				vi = dist.sample()
+				# check whether we should invoke sample or grab condition dict
+				cond = tf.fill([self.batch_size,1], self.known_notes[0][0][ct])
+				def f1():
+					return dist.sample()
+				def f2():
+					return cond
+				vi = tf.cond(tf.equal(self.known_notes[0][0][ct], -1), f1, f2)
 				temp_a = temp_a + tf.matmul(vi , tf.slice(self.W, begin = (ct, 0), size = (1,-1)) )
 				temp_samples.append(vi)
 				ct += 1
