@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from numpy import random
+import math
 
 # Stolen from magenta/models/shared/events_rnn_graph
 def make_rnn_cell(rnn_layer_sizes,
