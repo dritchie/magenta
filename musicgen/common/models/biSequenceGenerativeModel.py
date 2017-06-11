@@ -111,14 +111,15 @@ class BiSequenceGenerativeModel(Model):
 		mask[masked_track] = 0
 		return np.concatenate([input_without_mask, mask])
 
-	def get_backward_rnn_inputs(self, timeslice_futures, condition_dicts, masked_track):
+	def get_backward_rnn_inputs(self, timeslice_futures, condition_dicts, masked_tracks):
 		# index = len(timeslice_futures) - 1
 		# bits = forward_input[self.timeslice_size:]
 		inputs = []
 		for index in range(len(timeslice_futures) - 1):
 			back_input = self.sequence_encoder.rnn_input_for_timeslice(timeslice_futures[:index + 1], index, condition_dicts[index])
 			mask = np.ones(self.timeslice_size)
-			mask[masked_track] = 0
+			for m in masked_tracks:
+				mask[m] = 0
 			inputs.append(np.concatenate([back_input, mask]))
 		return np.array(inputs)
 

@@ -34,7 +34,7 @@ class SequenceGenerativeModel(Model):
 	"""
 	@property
 	def condition_shapes(self):
-		return self.sequence_encoder.condition_shapes
+		return {'ordering': [9], 'd': [1]}
 
 	"""
 	Build the sub-graph for the RNN cell
@@ -56,7 +56,7 @@ class SequenceGenerativeModel(Model):
 	"""
 	Initial timeslice to use for input to this model in the absence of any priming inputs.
 	By default, this uses the encoder's empty timeslice (which is a zero vector)
-	"""	
+	"""
 	def default_initial_timeslice(self):
 		return self.sequence_encoder.timeslice_encoder.empty_timeslice
 
@@ -111,7 +111,7 @@ class SequenceGenerativeModel(Model):
 		Condition is an array of 1s, 0s, and -1s that specifies what the sample should be.
 
 		"""
-		
+
 
 	"""
 	Override of method from Model class
@@ -124,11 +124,14 @@ class SequenceGenerativeModel(Model):
 		inputs = batch['inputs']
 		targets = batch['outputs']
 		lengths = batch['lengths']
+		ordering = batch['ordering']
+		d = batch['d']
 
 		batch_size = tf.shape(targets)[0]
+		num_time_slices = tf.to_float(tf.reduce_sum(lengths))
 
 		_, rnn_outputs = self.run_rnn(self.initial_state(batch_size), inputs)
-		dist = self.get_step_dist(rnn_outputs, self.batch_to_condition_dict(batch))
+		dist = self.get_step_dist(rnn_outputs, self.batch_to_condition_dict(batch), targets.get_shape()[0])
 
 		targets_flat = tf.reshape(targets, [-1, self.timeslice_size])
 
@@ -143,9 +146,6 @@ class SequenceGenerativeModel(Model):
 		#log_prob = tf.reduce_sum(log_prob, 1)
 		log_prob = tf.reshape(log_prob, (1,-1))
 
-		num_time_slices = tf.to_float(tf.reduce_sum(lengths))
 		log_prob = tf.reduce_sum(mask_flat * log_prob) / num_time_slices
 
 		return -log_prob
-
-

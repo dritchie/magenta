@@ -60,7 +60,6 @@ def generate_ordering(N,d,timeslice_size):
 def get_row_indices(ordering):
 	return np.asarray(range(ordering.shape[0]),dtype=np.int32)
 
-# def get_track_mask_float(ordering, x):
 
 def get_mask_float(ordering,x):
 	# We can make this implementation much more efficient
@@ -151,17 +150,17 @@ class OrderlessNADEConcat:
 		# outputs a vector of (log)probability - one (log)probability for each timeslice entry
 		timeslice_size = targets_flat.get_shape().as_list()[1]
 		N = tf.shape(targets_flat)[0]
-		# N = targets_flat.get_shape().as_list()[0]
-		d = self.d
 		n = targets_flat.get_shape().as_list()[0]
 
 		# if sampling
 		# ordering = tf.cast(tf.stack([self.ordering for _ in range(n)]), tf.int32)
-		# ordering = tf.cast(self.ordering, tf.int32)
-		# ordering = tf.reshape(ordering, [tf.shape(ordering)[0] * tf.shape(ordering)[1], tf.shape(ordering)[2]])
+		d = tf.cast(self.d[0][0][0], tf.int32)
+		ordering = tf.cast(self.ordering, tf.int32)
+		ordering = tf.reshape(ordering, [tf.shape(ordering)[0] * tf.shape(ordering)[1], tf.shape(ordering)[2]])
 
 		# if training
-		ordering = tf.concat([self.ordering for _ in range(self.batch_size)], 0)
+		# d = self.d
+		# ordering = tf.concat([self.ordering for _ in range(self.batch_size)], 0)
 
 		offset = tf.constant(10**(-14), dtype=tf.float32,name='offset', verify_shape=False)
 		log_probability = tf.zeros([N,], dtype=tf.float32, name=None)

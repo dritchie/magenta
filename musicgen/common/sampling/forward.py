@@ -1,13 +1,14 @@
 import tensorflow as tf
 import numpy as np
 import copy
+from common.models.utils import generate_sample_ordering
 
 def batchify_dict(dic, batch_size):
 	return { name: np.tile(x, (batch_size, 1, 1)) for name,x in dic.iteritems() }
 
 class ForwardSample(object):
 
-	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_track = -1):
+	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_tracks = []):
 		self.model = model
 		# how many sequences are going in parallel
 		self.batch_size = batch_size
@@ -15,12 +16,13 @@ class ForwardSample(object):
 		# Construct a graph that takes placeholder inputs and produces the time slice Distribution
 		self.input_placeholder = tf.placeholder(dtype=tf.float32, shape=[batch_size,None,self.model.rnn_input_size], name = "inputs")
 		self.condition_dict_placeholders = {
-			name: tf.placeholder(dtype=tf.float32, shape=[batch_size,None]+shape) for name,shape in model.condition_shapes.iteritems()
+			name: tf.placeholder(dtype=tf.float32, shape=[batch_size,None]+shape, name = name) for name,shape in model.condition_shapes.iteritems()
 		}
+		self.condition_dict_placeholders['known_notes'] = tf.placeholder(dtype = tf.float32, shape = [batch_size, 1, self.model.timeslice_size], name = "known")
 		self.rnn_state = model.initial_state(batch_size)
 		self.final_state, self.rnn_outputs = model.run_rnn(self.rnn_state, self.input_placeholder)
-		self.masked_track = masked_track
-		self.dist = model.get_step_dist(self.rnn_outputs, self.condition_dict_placeholders)
+		self.masked_tracks = masked_tracks
+		self.dist = model.get_step_dist(self.rnn_outputs, self.condition_dict_placeholders, self.batch_size)
 		self.sampled_timeslice = self.dist.sample()
 
 		# Setup a session and restore saved variables
@@ -81,6 +83,8 @@ class ForwardSample(object):
 		for i in range(n_steps):
 			condition_dict = {} if (condition_dicts is None) else condition_dicts[i]
 			# Batchify the condition dict before feeding it into sampling step
+			condition_dict['ordering'] = generate_sample_ordering(self.masked_tracks, self.model.timeslice_size)
+			condition_dict['d'] = self.model.timeslice_size - len(self.masked_tracks)
 			condition_dict_batch = batchify_dict(condition_dict, self.batch_size)
 			rnn_state, sample_batch = self.sample_step(rnn_state, rnn_input, condition_dict_batch)
 			# Split the batchified sample into N individual samples (N = self.batch_size)

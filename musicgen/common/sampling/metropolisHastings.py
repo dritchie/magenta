@@ -5,10 +5,14 @@ import copy
 import random
 from common.sampling.forward import ForwardSample, batchify_dict
 from sklearn.preprocessing import MinMaxScaler, normalize
+from common.models.utils import generate_sample_ordering
+
+def batchify_dict(dic, batch_size):
+	return { name: np.tile(x, (batch_size, 1, 1)) for name,x in dic.iteritems() }
 
 class MetropolisHastings(ForwardSample):
 
-	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_track = -1):
+	def __init__(self, model, checkpoint_dir, batch_size=1, iterations = 100000, masked_tracks = []):
 		super(MetropolisHastings, self).__init__(model, checkpoint_dir, batch_size)
 		self.rnn_states = []
 		self.sample_placeholder = tf.placeholder(dtype = tf.float32, shape=[batch_size, self.model.timeslice_size], name = "samples")
@@ -65,6 +69,9 @@ class MetropolisHastings(ForwardSample):
 		batch[rand_step + 1][rand_note] = 1 - batch[rand_step + 1][rand_note]
 
 		condition_dict = {} if (condition_dicts is None) else condition_dicts[rand_step]
+		condition_dict['ordering'] = generate_sample_ordering(self.masked_tracks, self.model.timeslice_size)
+		condition_dict['d'] = self.model.timeslice_size - len(self.masked_tracks)
+		condition_dict_batch = batchify_dict(condition_dict, self.batch_size)
 		rnn_next_inputs = [self.model.next_rnn_input(history, condition_dict) for history in timeslice_histories_copy]
 		rnn_input = np.stack(rnn_next_inputs)[:,np.newaxis]	# newaxis also adds singleton time dimension
 		rnn_state = self.rnn_states[rand_step]
@@ -75,7 +82,9 @@ class MetropolisHastings(ForwardSample):
 		for i in range(rand_step, n_steps):
 			rnn_states_copy[i] = rnn_state
 
-			feed_dict = { self.input_placeholder: rnn_input, self.rnn_state: rnn_state }
+			feed_dict = {self.condition_dict_placeholders[name]: condition_dict_batch[name] for name in condition_dict_batch}
+			feed_dict[self.input_placeholder] = rnn_input
+			feed_dict[self.rnn_state] = rnn_state
 			next_state, outputs = self.sess.run([self.final_state, self.rnn_outputs], feed_dict)
 			if not first:
 				sample = copy.deepcopy(np.array([timeslice_histories[b][i+1] for b in range(self.batch_size)]))
@@ -94,6 +103,9 @@ class MetropolisHastings(ForwardSample):
 				timeslice_histories_copy[j].append(s)
 
 			condition_dict = {} if (condition_dicts is None) else condition_dicts[i]
+			condition_dict['ordering'] = generate_sample_ordering(self.masked_tracks, self.model.timeslice_size)
+			condition_dict['d'] = self.model.timeslice_size - len(self.masked_tracks)
+			condition_dict_batch = batchify_dict(condition_dict, self.batch_size)
 			rnn_next_inputs = [self.model.next_rnn_input(history, condition_dict) for history in timeslice_histories_copy]
 			rnn_input = np.stack(rnn_next_inputs)[:,np.newaxis]	# newaxis also adds singleton time dimension
 
@@ -177,7 +189,8 @@ class MetropolisHastings(ForwardSample):
 			condition_dict = {} if (condition_dicts is None) else condition_dicts[i]
 			# Batchify the condition dict before feeding it into sampling step
 			self.rnn_states.append(rnn_state)
-
+			condition_dict['ordering'] = generate_sample_ordering(self.masked_tracks, self.model.timeslice_size)
+			condition_dict['d'] = self.model.timeslice_size - len(self.masked_tracks)
 			condition_dict_batch = batchify_dict(condition_dict, self.batch_size)
 			rnn_state, sample_batch = self.initial_sample_step(i, rnn_state, rnn_input, condition_dict_batch)
 			# Split the batchified sample into N individual samples (N = self.batch_size)
@@ -198,7 +211,9 @@ class MetropolisHastings(ForwardSample):
 	"""
 	def initial_sample_step(self, step, rnn_state, rnn_input, condition_dict):
 		# First, we run the graph to get the rnn outputs and next state
-		feed_dict = { self.input_placeholder: rnn_input, self.rnn_state: rnn_state }
+		feed_dict = {self.condition_dict_placeholders[name]: condition_dict[name] for name in condition_dict}
+		feed_dict[self.input_placeholder] = rnn_input
+		feed_dict[self.rnn_state] = rnn_state
 		next_state, outputs = self.sess.run([self.final_state, self.rnn_outputs], feed_dict)
 
 		# Next, we slice out the last timeslice of the outputs--we only want to
@@ -211,11 +226,6 @@ class MetropolisHastings(ForwardSample):
 
 		# instead of this line, actually sample from the timeslice distribution!
 		sample = np.zeros((self.batch_size, self.model.timeslice_size))
-		# feed_dict = {self.condition_dict_placeholders[name]: condition_dict[name] for name in condition_dict}
-		# feed_dict[self.rnn_outputs] = outputs
-		# sample = self.sess.run(self.sampled_timeslice, feed_dict)
-		# matching = False
-		# first = True
 
 		if condition_dict:
 			for i in range(self.batch_size):
@@ -224,29 +234,6 @@ class MetropolisHastings(ForwardSample):
 					if sample[i][j] == -1:
 						self.unknown_notes.append((i, step, j))
 						sample[i][j] = random.randint(0, 1)
-
-			# while not matching:
-			# 	probabilities = np.zeros((self.batch_size,))
-			# 	for i in range(self.batch_size):
-			# 		probabilities[i] += self.model.eval_factor_function(sample[i], condition_dict['known_notes'][i][0])
-			# 		if first and condition_dict['known_notes'][i][0] == -1:
-			# 			self.unknown_notes.append((i, step, j))
-			# 	probabilities = np.exp(probabilities)
-			# 	if sum(probabilities) > 0:
-			# 		matching = True
-			# 	else:
-			# 		sample = self.sess.run(self.sampled_timeslice, feed_dict)
-			# 	first = False
-
-			# normalized_probabilities = np.array([float(i/sum(probabilities)) for i in probabilities])
-			# new_sample = np.zeros(sample.shape)
-			#
-			# # Resample from the distribution which favors samples that satisfy the conditions specified.
-			# for i in range(self.batch_size):
-			# 	new_dist = np.random.multinomial(1, normalized_probabilities)
-			# 	new_sample[i] = np.matmul(new_dist.reshape(1, -1), sample)
-			#
-			# sample = new_sample
 
 		else:
 			for i in range(self.batch_size):
