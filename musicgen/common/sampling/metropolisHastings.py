@@ -36,14 +36,14 @@ class MetropolisHastings(ForwardSample):
 				print "Probabilities for iteration " + str(i) + ": " + str(self.log_probabilities.sum(axis = 0))
 			timeslice_histories = self.flip_and_modify_note(timeslice_histories, n_steps, condition_dicts)
 			self.log_probs_for_graph.append(self.log_probabilities.sum(axis=0))
-		for i in range(self.batch_size):
-			x = [j for j in range(1, len(self.log_probs_for_graph) + 1)]
-			y = [prob[i] for prob in self.log_probs_for_graph]
-			plt.plot(x, y, label = "batch " + str(i + 1))
-			plt.xlabel('Number of iterations')
-			plt.ylabel('Log probability')
-			plt.legend()
-		plt.show()
+		# for i in range(self.batch_size):
+		# 	x = [j for j in range(1, len(self.log_probs_for_graph) + 1)]
+		# 	y = [prob[i] for prob in self.log_probs_for_graph]
+		# 	plt.plot(x, y, label = "batch " + str(i + 1))
+		# 	plt.xlabel('Number of iterations')
+		# 	plt.ylabel('Log probability')
+		# 	plt.legend()
+		# plt.show()
 		print self.log_probabilities.sum(axis = 0)
 			# plt.savefig('sample_' + str(i) + '_prob.png')
 		return timeslice_histories
