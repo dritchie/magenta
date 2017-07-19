@@ -35,7 +35,7 @@ class ParticleFilter(ForwardSample):
 		sample = self.sess.run(self.sampled_timeslice, feed_dict)
 		matching = False
 
-		if condition_dict:
+		if 'known_notes' in condition_dict:
 			# Keep resampling until there are some samples that satisfy the conditions specified.
 			while not matching:
 				probabilities = np.zeros((self.batch_size,))
@@ -49,7 +49,7 @@ class ParticleFilter(ForwardSample):
 
 			normalized_probabilities = np.array([float(i/sum(probabilities)) for i in probabilities])
 			new_sample = np.zeros(sample.shape)
-			
+
 			# Resample from the distribution which favors samples that satisfy the conditions specified.
 			for i in range(self.batch_size):
 				new_dist = np.random.multinomial(1, normalized_probabilities)
@@ -66,6 +66,3 @@ class ParticleFilter(ForwardSample):
 		sample = sample[:,np.newaxis,:]
 
 		return next_state, sample
-
-
-

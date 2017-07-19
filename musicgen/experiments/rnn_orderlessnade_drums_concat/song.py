@@ -8,13 +8,6 @@ from common import utils
 from common.datasets.jsbchorales import vec_entry_to_pitch
 from magenta.common import HParams
 
-
-args = sys.argv[1:]
-if len(args) != 1:
-	print "Usage: song.py"
-	sys.exit(1)
-experiment_name = args[0]
-
 timeslice_encoder = encoding.IdentityTimeSliceEncoder(encoding.DrumTimeSliceEncoder().output_size)
 
 data_filename = '/mnt/nfs_datasets/lakh_midi_full/drums_lookback_meter/eval_drum_tracks.tfrecord'
@@ -24,5 +17,9 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 )
 
 dataset = SequenceDataset([data_filename], sequence_encoder)
-sess = tf.Session()
+
+sv = tf.train.Supervisor()
+with sv.managed_session() as sess:
+	
+
 print sess.run(dataset.load_single())

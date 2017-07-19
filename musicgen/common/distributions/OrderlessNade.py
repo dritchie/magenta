@@ -153,7 +153,6 @@ class OrderlessNADEConcat:
 		n = targets_flat.get_shape().as_list()[0]
 
 		# if sampling
-		# ordering = tf.cast(tf.stack([self.ordering for _ in range(n)]), tf.int32)
 		d = tf.cast(self.d[0][0][0], tf.int32)
 		ordering = tf.cast(self.ordering, tf.int32)
 		ordering = tf.reshape(ordering, [tf.shape(ordering)[0] * tf.shape(ordering)[1], tf.shape(ordering)[2]])

@@ -3,10 +3,9 @@ import os
 import copy
 import numpy as np
 import tensorflow as tf
-from common.models import RNNOrderlessNade
-from common.sampling.metropolisHastings import MetropolisHastings
-from common.sampling.particleFilter import ParticleFilter
-from common.sampling.forward import ForwardSample
+from common.models import RNNOrderlessNadeConcat
+from common.sampling.biForward import BiForwardSample
+from common.sampling.biParticleFilter import BiParticleFilter
 from common.datasets import SequenceDataset
 import common.encoding as encoding
 from common import utils
@@ -42,10 +41,11 @@ sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 
 dataset = SequenceDataset([data_filename], sequence_encoder)
 features = dataset.load_single()
-_features = tf.contrib.learn.run_n(features, n=14)
+# import pdb; pdb.set_trace()
+_features = tf.contrib.learn.run_n(features, n=15)
 song = _features[13]['outputs']
 
-model = RNNOrderlessNade.from_file(log_dir + '/model.pickle', sequence_encoder)
+model = RNNOrderlessNadeConcat.from_file(log_dir + '/model.pickle', sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
 
 masked_tracks = [2, 3, 5]
@@ -61,14 +61,12 @@ for i in range(64):
 		vec[m] = -1
 	d['known_notes'] = vec
 	condition_dicts.append(d)
-# condition_dicts = []
-# for i in range(64):
-# 	condition_dicts.append({'known_notes': np.array([1, -1, -1, -1, -1, -1, -1, -1, -1])})
 
-sampler = MetropolisHastings(model, log_dir, batch_size=5, iterations = 50000, masked_tracks = masked_tracks)
+sampler = BiForwardSample(model, log_dir, batch_size=10, masked_tracks = masked_tracks)
 
 # Draw samples that are 64 steps long (4 steps per bar, I think?)
-samples = sampler.sample(64, condition_dicts = condition_dicts)
+samples, log_prob = sampler.sample(64, condition_dicts = condition_dicts)
+print log_prob
 
 # Convert samples: binaryvec -> pitches -> DrumTrack -> NoteSequence -> MIDI
 gen_dir = dir_path + '/generated/' + experiment_name
@@ -81,13 +79,13 @@ for i in range(len(samples)):
 	filename = '{}/sample_{}.mid'.format(gen_dir, i)
 	sequence_proto_to_midi_file(noteseq, filename)
 
-pitches = [drum_encoder.decode(binvec) for binvec in song]
+pitches = [drum_encoder.decode(binvec) for binvec in song[:64]]
 drum_track = enc_utils.pitches_to_DrumTrack(pitches)
 noteseq = drum_track.to_sequence()
 filename = '{}/original.mid'.format(gen_dir)
 sequence_proto_to_midi_file(noteseq, filename)
 
-pitches = [drum_encoder.decode(binvec) for binvec in masked_sample]
+pitches = [drum_encoder.decode(binvec) for binvec in masked_sample[:64]]
 drum_track = enc_utils.pitches_to_DrumTrack(pitches)
 noteseq = drum_track.to_sequence()
 filename = '{}/masked.mid'.format(gen_dir)
@@ -97,11 +95,16 @@ for i in range(len(samples)):
 	print "SAMPLE " + str(i) + " DIFFERENCE"
 	sample = samples[i]
 	count = 0
-	count_zero = 0
+	count_on = np.zeros((9))
+	count_zero = np.zeros((9))
 	for j in range(len(sample) - 1):
 		count += abs(song[j] - sample[j + 1])
-		count_zero += song[j][2] - 0
+		for m in masked_tracks:
+			count_on[m] += sample[j][m]
+		for m in range(9):
+			count_zero[m] += (song[j][m] - 0)
 	print "Difference between sample and original: " + str(count)
+	print "Num notes on for masked tracks: " + str(count_on)
 	print "Difference between empty track and original: " + str(count_zero)
 
 print 'Done'

@@ -25,7 +25,6 @@ class BiForwardSample(object):
 		self.final_forward_state, self.rnn_forward_outputs = model.run_forward_rnn(self.rnn_forward_state, self.forward_input_placeholder)
 		self.rnn_backward_state = model.initial_backward_state(batch_size)
 		self.final_backward_state, self.rnn_backward_outputs = model.run_backward_rnn(model.initial_backward_state(batch_size), self.backward_input_placeholder)
-		# self.rnn_backward_outputs = tf.placeholder(dtype = tf.float32, shape = [batch_size, None, None])
 		self.masked_tracks = masked_tracks
 		# Todo: make dist rnn outputs concatenation of forward and backward rnn outputs
 		self.dist = model.get_step_dist(self.rnn_forward_outputs, self.rnn_backward_outputs, self.condition_dict_placeholders, self.batch_size)

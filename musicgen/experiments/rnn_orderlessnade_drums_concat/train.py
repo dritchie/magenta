@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import sys
 import os
 from common.models import RNNOrderlessNadeConcat
@@ -45,15 +46,13 @@ train_params = HParams(
 
 timeslice_encoder = encoding.IdentityTimeSliceEncoder(encoding.DrumTimeSliceEncoder().output_size)
 
-data_filename = '/mnt/nfs_datasets/lakh_midi_full/drums_lookback_meter/training_drum_tracks.tfrecord'
+data_filename = '../eval_drum_tracks.tfrecord'
 sequence_encoder = encoding.LookbackSequenceEncoder(timeslice_encoder,
 	lookback_distances=[],
 	binary_counter_bits=6
 )
 
 dataset = SequenceDataset([data_filename], sequence_encoder)
-single = dataset.load_single()
-print single
 
 model = RNNOrderlessNadeConcat(model_params, dataset.sequence_encoder,size_hidden_layer=50)
 model.save(log_dir + '/model.pickle')

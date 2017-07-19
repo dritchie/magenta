@@ -13,7 +13,7 @@ class RNNNade(SequenceGenerativeModel):
 		self.size_hidden_layer=size_hidden_layer
 
 
-	def get_step_dist(self, rnn_outputs, condition_dict):
+	def get_step_dist(self, rnn_outputs, condition_dict, batch_size):
 		with tf.variable_scope('NADE_model') as scope:
 			W = tf.get_variable("W", shape = (self.timeslice_size, self.size_hidden_layer), initializer = tf.contrib.layers.xavier_initializer())
 			V = tf.get_variable("V", shape = (self.size_hidden_layer, self.timeslice_size), initializer = tf.contrib.layers.xavier_initializer())
@@ -36,4 +36,4 @@ class RNNNade(SequenceGenerativeModel):
 		return dist
 
 	def eval_factor_function(self, sample, condition):
-		return 
+		return

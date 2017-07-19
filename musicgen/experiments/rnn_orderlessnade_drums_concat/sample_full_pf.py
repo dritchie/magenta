@@ -4,8 +4,8 @@ import copy
 import numpy as np
 import tensorflow as tf
 from common.models import RNNOrderlessNade
-from common.sampling.metropolisHastings import MetropolisHastings
-from common.sampling.particleFilter import ParticleFilter
+from common.models import RNNNade
+from common.sampling.fullParticleFilter import FullParticleFilter
 from common.sampling.forward import ForwardSample
 from common.datasets import SequenceDataset
 import common.encoding as encoding
@@ -22,6 +22,9 @@ experiment_name = args[0]
 dir_path = os.path.dirname(os.path.realpath(__file__))
 log_dir = dir_path + '/trainOutput/' + experiment_name
 utils.ensuredir(log_dir)
+
+rnn_log_dir = '//Users/shreyashankar/Documents/College/Sophomore/WinterQuarter/magenta/musicgen/experiments/rnn_nade_drums/trainOutput/rnn_nade';
+utils.ensuredir(rnn_log_dir)
 
 drum_encoder = encoding.DrumTimeSliceEncoder()
 timeslice_encoder = encoding.IdentityTimeSliceEncoder(drum_encoder.output_size)
@@ -46,6 +49,7 @@ _features = tf.contrib.learn.run_n(features, n=14)
 song = _features[13]['outputs']
 
 model = RNNOrderlessNade.from_file(log_dir + '/model.pickle', sequence_encoder)
+rnn_nade_model = RNNNade.from_file(rnn_log_dir + '/model.pickle', sequence_encoder)
 model.hparams.dropout_keep_prob = 1.0
 
 masked_tracks = [2, 3, 5]
@@ -61,11 +65,8 @@ for i in range(64):
 		vec[m] = -1
 	d['known_notes'] = vec
 	condition_dicts.append(d)
-# condition_dicts = []
-# for i in range(64):
-# 	condition_dicts.append({'known_notes': np.array([1, -1, -1, -1, -1, -1, -1, -1, -1])})
 
-sampler = MetropolisHastings(model, log_dir, batch_size=5, iterations = 50000, masked_tracks = masked_tracks)
+sampler = FullParticleFilter(model, log_dir, rnn_nade_model, rnn_log_dir, batch_size=5, masked_tracks = masked_tracks)
 
 # Draw samples that are 64 steps long (4 steps per bar, I think?)
 samples = sampler.sample(64, condition_dicts = condition_dicts)
